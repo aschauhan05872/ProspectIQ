@@ -32,7 +32,10 @@ def test_app_factory_exposes_tdd_routes() -> None:
         "/sources/company",
         "/research/company",
         "/companies/{company_id}/research",
+        "/companies/{company_id}/facts",
         "/research/cases/{case_id}",
+        "/research/cases/{case_id}/facts",
+        "/research/cases/{case_id}/extract-facts",
         "/discovery/companies",
     ):
         assert required in paths
