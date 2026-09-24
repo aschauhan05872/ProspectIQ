@@ -18,6 +18,7 @@ from prospectiq.domain.common import (
     TenantScope,
 )
 from prospectiq.domain.company import Company, CompanySource
+from prospectiq.domain.company_facts import CompanyFact, EvidencePageContext, ExtractedCompanyFact
 from prospectiq.domain.company_research import CompanyResearchCase, ResearchPage
 from prospectiq.domain.discovery import (
     CompanyCandidate,
@@ -197,6 +198,22 @@ class ResearchPageRepository(Protocol):
     async def list_for_case(self, scope: TenantScope, case_id: UUID) -> list[ResearchPage]: ...
 
 
+class CompanyFactRepository(Protocol):
+    async def upsert(self, scope: TenantScope, fact: CompanyFact) -> tuple[CompanyFact, bool]: ...
+
+    async def list_for_case(self, scope: TenantScope, case_id: UUID) -> list[CompanyFact]: ...
+
+    async def list_for_company(
+        self, scope: TenantScope, company_id: CompanyId
+    ) -> list[CompanyFact]: ...
+
+
+class EvidenceFactExtractor(Protocol):
+    extraction_method: str
+
+    def extract(self, contexts: list[EvidencePageContext]) -> list[ExtractedCompanyFact]: ...
+
+
 class ImportBatchRepository(Protocol):
     async def create(self, scope: TenantScope, batch: ImportBatch) -> ImportBatch: ...
 
@@ -303,6 +320,7 @@ class NormalizedRecord:
 
 class AIOperation:
     RESEARCH_SUMMARY = "research_summary"
+    FACT_EXTRACTION = "fact_extraction"
     SIGNAL_EXTRACTION_ASSIST = "signal_extraction_assist"
     OUTREACH_DRAFT = "outreach_draft"
 

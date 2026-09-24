@@ -431,6 +431,43 @@ class CompanyResearchCaseRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class CompanyFactRow(Base):
+    __tablename__ = "company_facts"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    company_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True
+    )
+    research_case_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("company_research_cases.id"), nullable=False, index=True
+    )
+    category: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    subject: Mapped[str] = mapped_column(String(128), nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_ids_json: Mapped[list[str]] = mapped_column("evidence_ids", JSONB, nullable=False)
+    origin: Mapped[str] = mapped_column(String(32), nullable=False)
+    confidence: Mapped[str] = mapped_column(String(16), nullable=False)
+    fact_tier: Mapped[str] = mapped_column(String(32), nullable=False, default="substantive")
+    extraction_method: Mapped[str] = mapped_column(String(64), nullable=False)
+    extraction_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    dedupe_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    extracted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "research_case_id",
+            "dedupe_key",
+            name="uq_company_facts_tenant_case_dedupe",
+        ),
+    )
+
+
 class ResearchPageRow(Base):
     __tablename__ = "research_pages"
 

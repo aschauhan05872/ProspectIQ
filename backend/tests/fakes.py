@@ -13,6 +13,7 @@ from prospectiq.domain.common import (
     TenantScope,
 )
 from prospectiq.domain.company import Company, CompanySource
+from prospectiq.domain.company_facts import CompanyFact, CompanyFactStatus
 from prospectiq.domain.company_research import CompanyResearchCase, ResearchPage
 from prospectiq.domain.discovery import DiscoveryCandidate
 from prospectiq.domain.evidence import Evidence
@@ -321,6 +322,52 @@ class InMemoryResearchPageRepository:
             item
             for (tenant_id, _), item in self.items.items()
             if tenant_id == scope.tenant_id and item.research_case_id == case_id
+        ]
+
+
+class InMemoryCompanyFactRepository:
+    def __init__(self) -> None:
+        self.items: dict[tuple[UUID, UUID, str], CompanyFact] = {}
+
+    async def upsert(self, scope: TenantScope, fact: CompanyFact) -> tuple[CompanyFact, bool]:
+        _require_scope(scope, fact.tenant_id)
+        key = (scope.tenant_id, fact.research_case_id, fact.dedupe_key)
+        existing = self.items.get(key)
+        if existing is None:
+            self.items[key] = fact
+            return fact, True
+        existing.category = fact.category
+        existing.subject = fact.subject
+        existing.value = fact.value
+        existing.evidence_ids = fact.evidence_ids
+        existing.origin = fact.origin
+        existing.confidence = fact.confidence
+        existing.fact_tier = fact.fact_tier
+        existing.extraction_method = fact.extraction_method
+        existing.extraction_version = fact.extraction_version
+        existing.status = fact.status
+        existing.extracted_at = fact.extracted_at
+        existing.updated_at = fact.updated_at
+        return existing, False
+
+    async def list_for_case(self, scope: TenantScope, case_id: UUID) -> list[CompanyFact]:
+        return [
+            item
+            for (tenant_id, research_case_id, _), item in self.items.items()
+            if tenant_id == scope.tenant_id
+            and research_case_id == case_id
+            and item.status is CompanyFactStatus.ACTIVE
+        ]
+
+    async def list_for_company(
+        self, scope: TenantScope, company_id: CompanyId
+    ) -> list[CompanyFact]:
+        return [
+            item
+            for (tenant_id, _, _), item in self.items.items()
+            if tenant_id == scope.tenant_id
+            and item.company_id == company_id
+            and item.status is CompanyFactStatus.ACTIVE
         ]
 
 

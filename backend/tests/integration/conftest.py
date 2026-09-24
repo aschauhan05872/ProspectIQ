@@ -40,6 +40,7 @@ NOW = datetime(2026, 9, 22, 12, 0, tzinfo=UTC)
 # committed rows from prior tests cannot leak (session.rollback() alone is not enough).
 INTEGRATION_DATA_TABLES = (
     "jobs",
+    "company_facts",
     "research_pages",
     "company_research_cases",
     "imported_prospects",

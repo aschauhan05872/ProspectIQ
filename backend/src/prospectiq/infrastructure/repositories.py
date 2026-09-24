@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from prospectiq.domain.common import (
+    CompanyFactId,
     CompanyId,
     Confidence,
     EvidenceId,
@@ -21,6 +22,12 @@ from prospectiq.domain.common import (
     TenantScope,
 )
 from prospectiq.domain.company import Company, CompanySource, CompanyType, Geography, Industry
+from prospectiq.domain.company_facts import (
+    CompanyFact,
+    CompanyFactCategory,
+    CompanyFactStatus,
+    CompanyFactTier,
+)
 from prospectiq.domain.company_research import (
     CompanyResearchCase,
     CompanyResearchStatus,
@@ -45,6 +52,7 @@ from prospectiq.domain.scoring import LeadClassification
 from prospectiq.domain.signal import Signal, SignalType
 from prospectiq.domain.source_registry import SourceClass
 from prospectiq.infrastructure.models import (
+    CompanyFactRow,
     CompanyResearchCaseRow,
     CompanyRow,
     CompanySourceRow,
@@ -804,6 +812,101 @@ def _research_page_from_row(row: ResearchPageRow) -> ResearchPage:
         fetch_status=ResearchPageFetchStatus(row.fetch_status),
         failure_class=row.failure_class,
         evidence_id=EvidenceId(row.evidence_id) if row.evidence_id else None,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+class SqlAlchemyCompanyFactRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def upsert(self, scope: TenantScope, fact: CompanyFact) -> tuple[CompanyFact, bool]:
+        _require_scope(scope, fact.tenant_id)
+        stmt = select(CompanyFactRow).where(
+            CompanyFactRow.tenant_id == scope.tenant_id,
+            CompanyFactRow.research_case_id == fact.research_case_id,
+            CompanyFactRow.dedupe_key == fact.dedupe_key,
+        )
+        existing = (await self._session.execute(stmt)).scalar_one_or_none()
+        if existing is None:
+            self._session.add(
+                CompanyFactRow(
+                    id=fact.id,
+                    tenant_id=fact.tenant_id,
+                    company_id=fact.company_id,
+                    research_case_id=fact.research_case_id,
+                    category=fact.category.value,
+                    subject=fact.subject,
+                    value=fact.value,
+                    evidence_ids_json=[str(item) for item in fact.evidence_ids],
+                    origin=fact.origin.value,
+                    confidence=fact.confidence.value,
+                    fact_tier=fact.fact_tier.value,
+                    extraction_method=fact.extraction_method,
+                    extraction_version=fact.extraction_version,
+                    status=fact.status.value,
+                    dedupe_key=fact.dedupe_key,
+                    extracted_at=fact.extracted_at,
+                    created_at=fact.created_at,
+                    updated_at=fact.updated_at,
+                )
+            )
+            return fact, True
+
+        existing.category = fact.category.value
+        existing.subject = fact.subject
+        existing.value = fact.value
+        existing.evidence_ids_json = [str(item) for item in fact.evidence_ids]
+        existing.origin = fact.origin.value
+        existing.confidence = fact.confidence.value
+        existing.fact_tier = fact.fact_tier.value
+        existing.extraction_method = fact.extraction_method
+        existing.extraction_version = fact.extraction_version
+        existing.status = fact.status.value
+        existing.extracted_at = fact.extracted_at
+        existing.updated_at = fact.updated_at
+        return _company_fact_from_row(existing), False
+
+    async def list_for_case(self, scope: TenantScope, case_id: UUID) -> list[CompanyFact]:
+        stmt = select(CompanyFactRow).where(
+            CompanyFactRow.tenant_id == scope.tenant_id,
+            CompanyFactRow.research_case_id == case_id,
+            CompanyFactRow.status == CompanyFactStatus.ACTIVE.value,
+        )
+        result = await self._session.execute(stmt)
+        return [_company_fact_from_row(row) for row in result.scalars().all()]
+
+    async def list_for_company(
+        self, scope: TenantScope, company_id: CompanyId
+    ) -> list[CompanyFact]:
+        stmt = select(CompanyFactRow).where(
+            CompanyFactRow.tenant_id == scope.tenant_id,
+            CompanyFactRow.company_id == company_id,
+            CompanyFactRow.status == CompanyFactStatus.ACTIVE.value,
+        )
+        result = await self._session.execute(stmt)
+        return [_company_fact_from_row(row) for row in result.scalars().all()]
+
+
+def _company_fact_from_row(row: CompanyFactRow) -> CompanyFact:
+    return CompanyFact(
+        id=CompanyFactId(row.id),
+        tenant_id=TenantId(row.tenant_id),
+        company_id=CompanyId(row.company_id),
+        research_case_id=row.research_case_id,
+        category=CompanyFactCategory(row.category),
+        subject=row.subject,
+        value=row.value,
+        evidence_ids=[EvidenceId(UUID(item)) for item in row.evidence_ids_json],
+        origin=EvidenceOrigin(row.origin),
+        confidence=Confidence(row.confidence),
+        fact_tier=CompanyFactTier(row.fact_tier),
+        extraction_method=row.extraction_method,
+        extraction_version=row.extraction_version,
+        status=CompanyFactStatus(row.status),
+        dedupe_key=row.dedupe_key,
+        extracted_at=row.extracted_at,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )

@@ -10,6 +10,10 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from prospectiq.domain.common import utcnow
+from prospectiq.domain.company_facts import (
+    PermanentCompanyFactError,
+    RetryableCompanyFactError,
+)
 from prospectiq.domain.company_research import (
     PermanentCompanyResearchError,
     RetryableCompanyResearchError,
@@ -19,6 +23,9 @@ from prospectiq.domain.ingestion import PermanentSourceError, RetryableSourceErr
 from prospectiq.domain.jobs import DEFAULT_LEASE_SECONDS, Job, JobType
 from prospectiq.domain.news import PermanentNewsError, RetryableNewsError
 from prospectiq.domain.prospect_import import ProspectImportError
+from prospectiq.infrastructure.company_fact_extraction_runtime import (
+    build_company_fact_extraction_service,
+)
 from prospectiq.infrastructure.company_research_runtime import build_company_research_service
 from prospectiq.infrastructure.config import Settings, get_settings
 from prospectiq.infrastructure.db import dispose_engine, get_session_factory
@@ -73,6 +80,10 @@ async def handle_job(job: Job, *, session: AsyncSession, settings: Settings) -> 
         company_research = build_company_research_service(session, settings)
         await company_research.execute_job(job)
         return
+    if job.job_type is JobType.EXTRACT_COMPANY_FACTS:
+        fact_extraction = build_company_fact_extraction_service(session)
+        await fact_extraction.execute_job(job)
+        return
     return
 
 
@@ -115,6 +126,7 @@ async def worker_loop(*, poll_seconds: float = 2.0) -> None:
                             PermanentNewsError,
                             ProspectImportError,
                             PermanentCompanyResearchError,
+                            PermanentCompanyFactError,
                         ),
                     )
                     retryable = isinstance(
@@ -124,6 +136,7 @@ async def worker_loop(*, poll_seconds: float = 2.0) -> None:
                             RetryableDiscoveryError,
                             RetryableNewsError,
                             RetryableCompanyResearchError,
+                            RetryableCompanyFactError,
                         ),
                     )
                     await session.rollback()

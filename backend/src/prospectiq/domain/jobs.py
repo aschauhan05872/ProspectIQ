@@ -22,6 +22,7 @@ class JobType(StrEnum):
     IMPORT_PROSPECTS = "import_prospects"
     RESOLVE_COMPANY = "resolve_company"
     RESEARCH_COMPANY = "research_company"
+    EXTRACT_COMPANY_FACTS = "extract_company_facts"
     ANALYZE_RESEARCH = "analyze_research"
     MAP_SERVICES = "map_services"
     GENERATE_OUTREACH = "generate_outreach"
