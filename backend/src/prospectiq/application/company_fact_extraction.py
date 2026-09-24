@@ -215,6 +215,7 @@ class CompanyFactExtractionService:
             evidence_ids=list(extracted.evidence_ids),
             origin=extracted.origin,
             confidence=extracted.confidence,
+            fact_tier=extracted.fact_tier,
             extraction_method=self._extractor.extraction_method,
             extraction_version=COMPANY_FACT_EXTRACTION_VERSION,
             status=CompanyFactStatus.ACTIVE,

@@ -16,7 +16,6 @@ from prospectiq.domain.company_facts import (
     EvidencePageContext,
     PermanentCompanyFactError,
     compute_fact_dedupe_key,
-    extract_deterministic_facts,
     validate_extracted_fact_payload,
 )
 from prospectiq.domain.company_research import (
@@ -27,6 +26,7 @@ from prospectiq.domain.company_research import (
     ResearchPageType,
 )
 from prospectiq.domain.evidence import Evidence, EvidenceOrigin
+from prospectiq.domain.fact_extraction_rules import extract_deterministic_facts
 from prospectiq.domain.ingestion import SourceFactKind
 from prospectiq.domain.jobs import Job, JobStatus, JobType
 from prospectiq.domain.source_registry import SourceClass
@@ -416,4 +416,4 @@ async def test_submit_enqueues_extract_job() -> None:
 
 def test_active_fact_status_default() -> None:
     assert CompanyFactStatus.ACTIVE.value == "active"
-    assert COMPANY_FACT_EXTRACTION_VERSION.startswith("company-fact-extraction")
+    assert COMPANY_FACT_EXTRACTION_VERSION == "company-fact-extraction-v2"

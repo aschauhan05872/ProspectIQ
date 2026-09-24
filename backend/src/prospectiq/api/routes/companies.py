@@ -50,6 +50,7 @@ class CompanyFactResponse(BaseModel):
     evidence_ids: list[str]
     origin: str
     confidence: str
+    fact_tier: str
     extraction_method: str
     extraction_version: str
     status: str
@@ -197,6 +198,7 @@ def _serialize_facts(facts: list[CompanyFact]) -> CompanyFactsListResponse:
                 evidence_ids=[str(item) for item in fact.evidence_ids],
                 origin=fact.origin.value,
                 confidence=fact.confidence.value,
+                fact_tier=fact.fact_tier.value,
                 extraction_method=fact.extraction_method,
                 extraction_version=fact.extraction_version,
                 status=fact.status.value,

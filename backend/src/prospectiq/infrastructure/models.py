@@ -450,6 +450,7 @@ class CompanyFactRow(Base):
     evidence_ids_json: Mapped[list[str]] = mapped_column("evidence_ids", JSONB, nullable=False)
     origin: Mapped[str] = mapped_column(String(32), nullable=False)
     confidence: Mapped[str] = mapped_column(String(16), nullable=False)
+    fact_tier: Mapped[str] = mapped_column(String(32), nullable=False, default="substantive")
     extraction_method: Mapped[str] = mapped_column(String(64), nullable=False)
     extraction_version: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)

@@ -1,6 +1,6 @@
 # Structured Evidence Analysis (Phase 5)
 
-**Status:** Implemented  
+**Status:** Implemented (v2 extraction remediation)  
 **Date:** 2026-09-24
 
 ---
@@ -35,6 +35,7 @@ Each fact stores:
 - category, subject, value
 - `evidence_ids` (references to existing `Evidence` rows — no duplicated page content)
 - `origin` (`source_derived` or `ai_interpretation`)
+- `fact_tier` (`substantive` vs `metadata` — page classification/titles are metadata)
 - confidence, extraction method/version, status
 - `dedupe_key` for idempotent upserts
 
@@ -49,7 +50,7 @@ Each fact stores:
 | `AIEvidenceFactExtractor` (optional) | `infrastructure/fact_extraction/ai_extractor.py` |
 | `CompanyFactExtractionService` | `application/company_fact_extraction.py` |
 
-Deterministic extraction handles explicit evidence: page classifications, titles, contact emails/phones, contact pages, content channels, and explicit location phrases.
+Deterministic extraction handles explicit evidence: office locations, organization scale (offices/partners counts), activity/events/blog signals, contact emails/phones, stated markets, and title quality filtering. Page classification/titles are stored as `metadata` tier facts.
 
 AI extraction remains behind the existing `AIGateway` boundary with:
 
@@ -64,7 +65,7 @@ AI extraction remains behind the existing `AIGateway` boundary with:
 
 | JobType | Idempotency key |
 |---------|-----------------|
-| `EXTRACT_COMPANY_FACTS` | `extract_company_facts:{case_id}:{version}` |
+| `EXTRACT_COMPANY_FACTS` | `extract_company_facts:{case_id}:company-fact-extraction-v2` |
 
 Triggered via API (does not modify Phase 4 research behavior). Worker handler in `worker/main.py`.
 
@@ -82,9 +83,9 @@ Triggered via API (does not modify Phase 4 research behavior). Worker handler in
 
 ## Database
 
-Migration: `20260924_0008_company_facts.py`
+Migrations: `20260924_0008_company_facts.py`, `20260924_0009_company_fact_tier.py`
 
-Table: `company_facts` with unique `(tenant_id, research_case_id, dedupe_key)`.
+Table: `company_facts` with unique `(tenant_id, research_case_id, dedupe_key)` and `fact_tier` column.
 
 ---
 

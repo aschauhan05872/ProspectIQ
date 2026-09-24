@@ -6,7 +6,6 @@ Facts are traceable intelligence — not opportunities, scores, or recommendatio
 from __future__ import annotations
 
 import hashlib
-import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
@@ -23,8 +22,8 @@ from prospectiq.domain.common import (
 )
 from prospectiq.domain.evidence import EvidenceOrigin
 
-COMPANY_FACT_EXTRACTION_VERSION = "company-fact-extraction-v1"
-EXTRACTION_METHOD_DETERMINISTIC = "deterministic_v1"
+COMPANY_FACT_EXTRACTION_VERSION = "company-fact-extraction-v2"
+EXTRACTION_METHOD_DETERMINISTIC = "deterministic_v2"
 EXTRACTION_METHOD_AI = "ai_v1"
 
 
@@ -35,6 +34,11 @@ class CompanyFactCategory(StrEnum):
     ACTIVITY = "activity"
     DIGITAL = "digital"
     ORGANIZATION = "organization"
+
+
+class CompanyFactTier(StrEnum):
+    SUBSTANTIVE = "substantive"
+    METADATA = "metadata"
 
 
 class CompanyFactStatus(StrEnum):
@@ -75,6 +79,7 @@ class ExtractedCompanyFact:
     evidence_ids: tuple[EvidenceId, ...]
     origin: EvidenceOrigin
     confidence: Confidence
+    fact_tier: CompanyFactTier = CompanyFactTier.SUBSTANTIVE
 
     def dedupe_key(self) -> str:
         return compute_fact_dedupe_key(
@@ -82,6 +87,7 @@ class ExtractedCompanyFact:
             subject=self.subject,
             value=self.value,
             evidence_ids=self.evidence_ids,
+            fact_tier=self.fact_tier,
         )
 
 
@@ -97,6 +103,7 @@ class CompanyFact:
     evidence_ids: list[EvidenceId]
     origin: EvidenceOrigin
     confidence: Confidence
+    fact_tier: CompanyFactTier
     extraction_method: str
     extraction_version: str
     status: CompanyFactStatus
@@ -132,160 +139,12 @@ def compute_fact_dedupe_key(
     subject: str,
     value: str,
     evidence_ids: tuple[EvidenceId, ...] | list[EvidenceId],
+    fact_tier: CompanyFactTier = CompanyFactTier.SUBSTANTIVE,
 ) -> str:
     normalized_value = " ".join(value.lower().split())
     ids = ",".join(sorted(str(item) for item in evidence_ids))
-    raw = f"{category.value}:{subject}:{normalized_value}:{ids}"
+    raw = f"{category.value}:{subject}:{normalized_value}:{fact_tier.value}:{ids}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
-
-
-_EMAIL_PATTERN = re.compile(
-    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
-)
-_PHONE_PATTERN = re.compile(
-    r"(?<!\w)(?:\+?\d{1,3}[\s.-]?)?(?:\(\d{2,4}\)|\d{2,4})[\s.-]?\d{3,4}[\s.-]?\d{3,4}(?:\s*(?:ext|x)\.?\s*\d+)?(?!\w)"
-)
-_LOCATION_PATTERN = re.compile(
-    r"\b(?:based in|located in|headquarters in|office in|offices in)\s+"
-    r"([A-Z][A-Za-z0-9\s,.-]{2,80})",
-    re.IGNORECASE,
-)
-_FORM_KEYWORDS = (
-    "contact form",
-    "request a demo",
-    "book a demo",
-    "schedule a call",
-    "get in touch",
-    "send us a message",
-)
-_OFFERING_PAGE_TYPES = frozenset({"services", "products", "solutions", "platform"})
-_CONTENT_PAGE_TYPES = frozenset({"news", "blog"})
-
-
-def extract_deterministic_facts(context: EvidencePageContext) -> list[ExtractedCompanyFact]:
-    """Extract explicit, structured facts from one research page evidence context."""
-
-    facts: list[ExtractedCompanyFact] = []
-    evidence_id = context.evidence_id
-    page_type = context.page_type
-    locator = context.source_locator
-    text = context.text
-    title = (context.title or "").strip()
-
-    facts.append(
-        ExtractedCompanyFact(
-            category=CompanyFactCategory.DIGITAL,
-            subject="page_classification",
-            value=f"{page_type} page at {locator}",
-            evidence_ids=(evidence_id,),
-            origin=EvidenceOrigin.SOURCE_DERIVED,
-            confidence=Confidence.HIGH,
-        )
-    )
-
-    if title:
-        facts.append(
-            ExtractedCompanyFact(
-                category=CompanyFactCategory.BUSINESS,
-                subject="page_title",
-                value=title,
-                evidence_ids=(evidence_id,),
-                origin=EvidenceOrigin.SOURCE_DERIVED,
-                confidence=Confidence.HIGH,
-            )
-        )
-
-    if page_type in _OFFERING_PAGE_TYPES and title:
-        facts.append(
-            ExtractedCompanyFact(
-                category=CompanyFactCategory.BUSINESS,
-                subject="stated_offering",
-                value=title,
-                evidence_ids=(evidence_id,),
-                origin=EvidenceOrigin.SOURCE_DERIVED,
-                confidence=Confidence.MEDIUM,
-            )
-        )
-
-    if page_type == "contact":
-        facts.append(
-            ExtractedCompanyFact(
-                category=CompanyFactCategory.COMMERCIAL,
-                subject="contact_page",
-                value=locator,
-                evidence_ids=(evidence_id,),
-                origin=EvidenceOrigin.SOURCE_DERIVED,
-                confidence=Confidence.HIGH,
-            )
-        )
-
-    if page_type in _CONTENT_PAGE_TYPES:
-        facts.append(
-            ExtractedCompanyFact(
-                category=CompanyFactCategory.ACTIVITY,
-                subject="content_channel",
-                value=page_type,
-                evidence_ids=(evidence_id,),
-                origin=EvidenceOrigin.SOURCE_DERIVED,
-                confidence=Confidence.HIGH,
-            )
-        )
-
-    lowered = text.lower()
-    for keyword in _FORM_KEYWORDS:
-        if keyword in lowered:
-            facts.append(
-                ExtractedCompanyFact(
-                    category=CompanyFactCategory.DIGITAL,
-                    subject="contact_mechanism",
-                    value=keyword,
-                    evidence_ids=(evidence_id,),
-                    origin=EvidenceOrigin.SOURCE_DERIVED,
-                    confidence=Confidence.MEDIUM,
-                )
-            )
-            break
-
-    for match in _EMAIL_PATTERN.findall(text):
-        facts.append(
-            ExtractedCompanyFact(
-                category=CompanyFactCategory.DIGITAL,
-                subject="email_address",
-                value=match,
-                evidence_ids=(evidence_id,),
-                origin=EvidenceOrigin.SOURCE_DERIVED,
-                confidence=Confidence.HIGH,
-            )
-        )
-
-    for match in _PHONE_PATTERN.findall(text):
-        normalized_phone = " ".join(match.split())
-        facts.append(
-            ExtractedCompanyFact(
-                category=CompanyFactCategory.DIGITAL,
-                subject="phone_number",
-                value=normalized_phone,
-                evidence_ids=(evidence_id,),
-                origin=EvidenceOrigin.SOURCE_DERIVED,
-                confidence=Confidence.MEDIUM,
-            )
-        )
-
-    for match in _LOCATION_PATTERN.finditer(text):
-        location = match.group(1).strip(" .,")
-        if location:
-            facts.append(
-                ExtractedCompanyFact(
-                    category=CompanyFactCategory.GEOGRAPHY,
-                    subject="operating_location",
-                    value=location,
-                    evidence_ids=(evidence_id,),
-                    origin=EvidenceOrigin.SOURCE_DERIVED,
-                    confidence=Confidence.MEDIUM,
-                )
-            )
-
-    return facts
 
 
 def validate_extracted_fact_payload(payload: dict[str, Any]) -> ExtractedCompanyFact:
@@ -298,6 +157,7 @@ def validate_extracted_fact_payload(payload: dict[str, Any]) -> ExtractedCompany
         origin = EvidenceOrigin(str(payload["origin"]))
         confidence = Confidence(str(payload["confidence"]))
         evidence_ids = tuple(EvidenceId(UUID(str(item))) for item in payload["evidence_ids"])
+        fact_tier = CompanyFactTier(str(payload.get("fact_tier", CompanyFactTier.SUBSTANTIVE)))
     except (KeyError, ValueError, TypeError) as exc:
         raise PermanentCompanyFactError(f"Malformed extractor output: {exc}") from exc
 
@@ -318,4 +178,26 @@ def validate_extracted_fact_payload(payload: dict[str, Any]) -> ExtractedCompany
         evidence_ids=evidence_ids,
         origin=origin,
         confidence=confidence,
+        fact_tier=fact_tier,
     )
+
+
+__all__ = [
+    "COMPANY_FACT_EXTRACTION_VERSION",
+    "EXTRACTION_METHOD_AI",
+    "EXTRACTION_METHOD_DETERMINISTIC",
+    "CompanyFact",
+    "CompanyFactCategory",
+    "CompanyFactError",
+    "CompanyFactExtractionResult",
+    "CompanyFactExtractionSubmission",
+    "CompanyFactStatus",
+    "CompanyFactTier",
+    "EvidencePageContext",
+    "ExtractedCompanyFact",
+    "PermanentCompanyFactError",
+    "RetryableCompanyFactError",
+    "compute_fact_dedupe_key",
+    "extract_facts_job_idempotency_key",
+    "validate_extracted_fact_payload",
+]

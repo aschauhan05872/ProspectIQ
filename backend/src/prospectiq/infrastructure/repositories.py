@@ -26,6 +26,7 @@ from prospectiq.domain.company_facts import (
     CompanyFact,
     CompanyFactCategory,
     CompanyFactStatus,
+    CompanyFactTier,
 )
 from prospectiq.domain.company_research import (
     CompanyResearchCase,
@@ -841,6 +842,7 @@ class SqlAlchemyCompanyFactRepository:
                     evidence_ids_json=[str(item) for item in fact.evidence_ids],
                     origin=fact.origin.value,
                     confidence=fact.confidence.value,
+                    fact_tier=fact.fact_tier.value,
                     extraction_method=fact.extraction_method,
                     extraction_version=fact.extraction_version,
                     status=fact.status.value,
@@ -858,6 +860,7 @@ class SqlAlchemyCompanyFactRepository:
         existing.evidence_ids_json = [str(item) for item in fact.evidence_ids]
         existing.origin = fact.origin.value
         existing.confidence = fact.confidence.value
+        existing.fact_tier = fact.fact_tier.value
         existing.extraction_method = fact.extraction_method
         existing.extraction_version = fact.extraction_version
         existing.status = fact.status.value
@@ -898,6 +901,7 @@ def _company_fact_from_row(row: CompanyFactRow) -> CompanyFact:
         evidence_ids=[EvidenceId(UUID(item)) for item in row.evidence_ids_json],
         origin=EvidenceOrigin(row.origin),
         confidence=Confidence(row.confidence),
+        fact_tier=CompanyFactTier(row.fact_tier),
         extraction_method=row.extraction_method,
         extraction_version=row.extraction_version,
         status=CompanyFactStatus(row.status),

@@ -342,6 +342,7 @@ class InMemoryCompanyFactRepository:
         existing.evidence_ids = fact.evidence_ids
         existing.origin = fact.origin
         existing.confidence = fact.confidence
+        existing.fact_tier = fact.fact_tier
         existing.extraction_method = fact.extraction_method
         existing.extraction_version = fact.extraction_version
         existing.status = fact.status
