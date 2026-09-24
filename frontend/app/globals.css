@@ -1,0 +1,30 @@
+:root {
+  color: #102033;
+  background: #f6f3ee;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+
+h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+p {
+  line-height: 1.5;
+}
+
+code {
+  font-family: Consolas, monospace;
+  font-size: 0.95em;
+}
